@@ -40,6 +40,7 @@ const app = (server: http.Server) => {
           room.showPlayers();
           room.onReady();
           room.sendChat(`${capitalize(username)} joined the room!`);
+          room.onSit();
           room.onChat();
         }
 

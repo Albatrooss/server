@@ -1,6 +1,8 @@
 import { Server, Socket } from 'socket.io';
+import { capitalize } from '../util';
 import { ChatData, Player, RoomAction } from 'types';
 import { logger } from '../config';
+import { stringify } from 'querystring';
 
 class Room {
   io: Server;
@@ -25,11 +27,13 @@ class Room {
       this.store = this.store.rooms.get(this.roomId);
       if (clients.size > 0) {
         await this.socket.join(this.roomId);
-        this.store.players.push({
+        this.store.players[this.socket.id] = {
           id: this.socket.id,
-          username: this.username,
+          username: this.username, 
           isReady: false,
-        });
+          seat: Object.keys(this.store.players).length,
+          hand: [],
+        };
         // this.socket.username = this.username;
         this.socket.emit('roomSuccess');
         return true;
@@ -46,9 +50,17 @@ class Room {
         await this.socket.join(this.roomId);
         this.store = this.store.rooms.get(this.roomId);
         // this.host = this.socket.id;
-        this.store.players = [
-          { id: this.socket.id, username: this.username, isReady: false },
-        ];
+        this.store.players= {
+          [this.socket.id]: { id: this.socket.id, username: this.username, isReady: false, seat: 0, hand: [] },
+        };
+        this.store.gameData = {
+          host: this.socket.id,
+          red: 0,
+          blue: 0,
+          dealer: 0,
+          gameOn: false,
+          turn: 1
+        }
         this.store.chat = [];
         this.socket.emit('roomSuccess');
         return true;
@@ -63,21 +75,24 @@ class Room {
   }
 
   showPlayers() {
-    const { players } = this.store;
-    this.io.to(this.roomId).emit('showPlayers', { players });
+    const { players, gameData } = this.store;
+    this.io.to(this.roomId).emit('showPlayers', { players, gameData });
   }
 
   onReady() {
     this.socket.on('ready', () => {
-      for (const player of this.store.players) {
-        if (player.id === this.socket.id) {
-          player.isReady = !player.isReady;
-          break;
-        }
-      }
+      this.store.players[this.socket.id].isReady = true;
 
       this.showPlayers();
     });
+  }
+
+  onSit() {
+    this.socket.on('sit', ({seat}) => {
+      console.log('SITTING', seat)
+      this.store.players[this.socket.id].seat = seat;
+      this.showPlayers();
+    })
   }
 
   onChat() {
@@ -99,6 +114,7 @@ class Room {
           (player: Player) => player.id !== this.socket.id,
         );
         this.showPlayers();
+        this.sendChat(`${capitalize(this.username)} left the room :(`);
       } catch (err) {
         logger.warn('[ERROR] Error disconnecting', err);
       }

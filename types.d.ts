@@ -33,6 +33,15 @@ export type Player = {
   hand: Card[];
 };
 
+export type GameData = {
+  host: string;
+  red: number;
+  blue: number
+  dealer: string;
+  gameOn: boolean;
+  turn: number;
+}
+
 export type RoomAction = 'create' | 'join';
 
 export type InitRoomOptions = {
