@@ -1,5 +1,5 @@
 import { Server, Socket } from 'socket.io';
-import { Player, RoomAction } from 'types';
+import { ChatData, Player, RoomAction } from 'types';
 import { logger } from '../config';
 
 class Room {
@@ -49,6 +49,7 @@ class Room {
         this.store.players = [
           { id: this.socket.id, username: this.username, isReady: false },
         ];
+        this.store.chat = [];
         this.socket.emit('roomSuccess');
         return true;
       }
@@ -77,6 +78,18 @@ class Room {
 
       this.showPlayers();
     });
+  }
+
+  onChat() {
+    this.socket.on('sendChat', (chatData: ChatData) => {
+      this.store.chat.unshift(chatData);
+      this.sendChat();
+    });
+  }
+
+  sendChat(adminMsg?: string) {
+    if (adminMsg) this.store.chat.unshift({ username: '-', text: adminMsg });
+    this.io.to(this.roomId).emit('sendChat', { chatData: this.store.chat });
   }
 
   onDisconnect() {

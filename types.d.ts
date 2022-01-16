@@ -40,3 +40,8 @@ export type InitRoomOptions = {
   username: string;
   action: RoomAction;
 };
+
+export type ChatData = {
+  username: string;
+  text: string;
+}

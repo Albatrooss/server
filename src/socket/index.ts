@@ -5,6 +5,7 @@ import { Server } from 'socket.io';
 import Room from '../services/RoomService';
 import { InitRoomOptions } from '../../types';
 import { logger } from '../config';
+import { capitalize, clean } from '../util';
 
 const app = (server: http.Server) => {
   const io = new Server(server, {
@@ -33,11 +34,13 @@ const app = (server: http.Server) => {
     socket.on(
       'initRoom',
       async ({ roomId, username, action }: InitRoomOptions) => {
-        const room = new Room(io, socket, roomId, username);
+        const room = new Room(io, socket, roomId, clean(username));
         const roomSuccess = await room.init(action);
         if (roomSuccess) {
           room.showPlayers();
           room.onReady();
+          room.sendChat(`${capitalize(username)} joined the room!`);
+          room.onChat();
         }
 
         room.onDisconnect();
