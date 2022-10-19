@@ -1,5 +1,5 @@
 import { Server, Socket } from 'socket.io';
-import { capitalize } from '../util';
+import { capitalize, firstAvailableSeat, getFullDeck } from '../util';
 import { ChatData, Player, RoomAction } from 'types';
 import { logger } from '../config';
 import { stringify } from 'querystring';
@@ -26,12 +26,19 @@ class Room {
     if (action === 'join') {
       this.store = this.store.rooms.get(this.roomId);
       if (clients.size > 0) {
+        if (Object.keys(this.store.players).length >= 4) {
+          logger.warn(
+            `[JOIN FAILED] Client denied join, as roomId ${this.roomId} is full`,
+            );
+            this.socket.emit('roomFail', {msg: `Room ${capitalize(this.roomId)} is full.`});
+          return;
+        }
         await this.socket.join(this.roomId);
         this.store.players[this.socket.id] = {
           id: this.socket.id,
           username: this.username, 
           isReady: false,
-          seat: Object.keys(this.store.players).length,
+          seat: firstAvailableSeat(new Set(Object.values(this.store.players).map((p: any) => p.seat))),
           hand: [],
         };
         // this.socket.username = this.username;
@@ -55,8 +62,8 @@ class Room {
         };
         this.store.gameData = {
           host: this.socket.id,
-          red: 0,
-          blue: 0,
+          red: 3,
+          blue: 4,
           dealer: 0,
           gameOn: false,
           turn: 1
@@ -87,6 +94,12 @@ class Room {
     });
   }
 
+  onStartGame() {
+    this.socket.on('startGame', () => {
+      this.io.to(this.roomId).emit('startGame', {deck: getFullDeck()})
+    })
+  }
+
   onSit() {
     this.socket.on('sit', ({seat}) => {
       console.log('SITTING', seat)
@@ -110,9 +123,9 @@ class Room {
   onDisconnect() {
     this.socket.on('disconnect', () => {
       try {
-        this.store.players = this.store.players.filter(
-          (player: Player) => player.id !== this.socket.id,
-        );
+        delete this.store.players[this.socket.id]
+        if (this.socket.id === this.store.gameData.host)
+          this.store.gameData.host = Object.values(this.store.players as any[])[0].id
         this.showPlayers();
         this.sendChat(`${capitalize(this.username)} left the room :(`);
       } catch (err) {

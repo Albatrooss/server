@@ -27,6 +27,7 @@ const app = (server: http.Server) => {
     socket.emit('connected');
 
     socket.on('pingRoom', async ({ roomId }) => {
+      console.log('ping?')
       const roomExists = Boolean((await io.in(roomId).allSockets()).size);
       socket.emit('pongRoom', { roomExists });
     });
@@ -41,6 +42,7 @@ const app = (server: http.Server) => {
           room.onReady();
           room.sendChat(`${capitalize(username)} joined the room!`);
           room.onSit();
+          room.onStartGame();
           room.onChat();
         }
 
